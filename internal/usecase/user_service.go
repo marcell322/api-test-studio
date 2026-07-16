@@ -26,12 +26,12 @@ func (s *userService) Register(username, email, password string) (*models.User, 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil { return nil, err }
 	u := &models.User{Username: username, Email: email, PasswordHash: string(hash)}
-	if err := s.repo.Create(u); err != nil { return nil, err }
+	if err := s.repo.CreateUser(u); err != nil { return nil, err }
 	return u, nil
 }
 
 func (s *userService) Authenticate(email, password string) (*models.User, error) {
-	u, err := s.repo.GetByEmail(email)
+	u, err := s.repo.GetUserByEmail(email)
 	if err != nil { return nil, err }
 	if u == nil { return nil, errors.New("invalid credentials") }
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
