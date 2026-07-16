@@ -19,13 +19,15 @@ import (
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(sqlite.Open(cfg.DBPath), &gorm.Config{})
+	db, err := persistence.NewGormDB(cfg.DBPath)
 	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+		log.Fatalf("failed to initialize database: %v", err)
 	}
 
 	// automigrate minimal models
-	db.AutoMigrate(&models.User{})
+	if err := persistence.AutoMigrate(db, &models.User{}); err != nil {
+		log.Fatalf("automigrate failed: %v", err)
+	}
 
 	// initialize repos & services
 	userRepo := persistence.NewGormUserRepository(db)
