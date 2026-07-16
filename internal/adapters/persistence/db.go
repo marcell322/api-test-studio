@@ -8,10 +8,12 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	_ "modernc.org/sqlite"
 )
 
 // NewGormDB opens (and creates if necessary) a SQLite database at dbPath and returns a *gorm.DB.
 // It ensures parent directories exist and returns clear wrapped errors.
+// Uses modernc.org/sqlite for pure Go implementation (no CGO required).
 func NewGormDB(dbPath string) (*gorm.DB, error) {
 	if dbPath == "" {
 		return nil, fmt.Errorf("empty db path")
@@ -24,7 +26,9 @@ func NewGormDB(dbPath string) (*gorm.DB, error) {
 		}
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	// use file: URI to ensure db creation
+	dsn := fmt.Sprintf("file:%s", dbPath)
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite db %s: %w", dbPath, err)
 	}
