@@ -31,7 +31,7 @@ func main() {
 
 	// initialize repos & services
 	userRepo := persistence.NewGormUserRepository(db)
-	userSvc := usecase.NewUserService(userRepo)
+	userSvc := usecase.NewUserService(userRepo, cfg.JWTSecret, cfg.JWTExpireH)
 
 	// router
 	r := server.NewRouter(cfg, userSvc)
