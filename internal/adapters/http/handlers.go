@@ -169,3 +169,61 @@ func validateLogin(email, password string) error {
 	}
 	return nil
 }
+
+// collections endpoints (placeholder stubs)
+
+func (h *Handlers) ListCollections(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+}
+
+func (h *Handlers) CreateCollection(c *gin.Context) {
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) GetCollection(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) UpdateCollection(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) DeleteCollection(c *gin.Context) {
+	c.JSON(http.StatusNoContent, gin.H{"success": true})
+}
+
+// requests endpoints (placeholder stubs)
+
+func (h *Handlers) ListRequests(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+}
+
+func (h *Handlers) CreateRequest(c *gin.Context) {
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) GetRequest(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) UpdateRequest(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) DeleteRequest(c *gin.Context) {
+	c.JSON(http.StatusNoContent, gin.H{"success": true})
+}
+
+// history endpoints (placeholder stubs)
+
+func (h *Handlers) ListHistory(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+}
+
+func (h *Handlers) GetHistoryItem(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+}
+
+func (h *Handlers) DeleteHistoryItem(c *gin.Context) {
+	c.JSON(http.StatusNoContent, gin.H{"success": true})
+}
