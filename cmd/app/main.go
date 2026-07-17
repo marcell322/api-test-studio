@@ -19,15 +19,12 @@ import (
 )
 
 func main() {
-	// load .env file (optional, won't fail if missing)
 	if err := godotenv.Load(); err != nil {
 		log.Println("note: .env file not found, using environment variables")
 	}
 
-	// load configuration from environment
 	cfg := config.Load()
 
-	// initialize database connection
 	log.Println("initializing database...")
 	db, err := persistence.NewGormDB(cfg.DBPath)
 	if err != nil {
@@ -35,25 +32,24 @@ func main() {
 	}
 	log.Printf("database initialized at %s", cfg.DBPath)
 
-	// auto migrate models
 	log.Println("running migrations...")
-	if err := persistence.AutoMigrate(db, &models.User{}); err != nil {
+	if err := persistence.AutoMigrate(db, &models.User{}, &models.Collection{}); err != nil {
 		log.Fatalf("automigrate failed: %v", err)
 	}
 	log.Println("migrations completed")
 
-	// initialize repositories and services
 	log.Println("initializing services...")
 	userRepo := persistence.NewGormUserRepository(db)
 	userSvc := usecase.NewUserService(userRepo, cfg.JWTSecret, cfg.JWTExpireH)
+
+	collectionRepo := persistence.NewGormCollectionRepository(db)
+	collectionSvc := usecase.NewCollectionService(collectionRepo)
 	log.Println("services initialized")
 
-	// setup router and register routes
 	log.Println("configuring routes...")
-	r := server.NewRouter(cfg, userSvc)
+	r := server.NewRouter(cfg, userSvc, collectionSvc)
 	log.Println("routes configured")
 
-	// create HTTP server
 	httpServer := &http.Server{
 		Addr:         cfg.Port,
 		Handler:      r,
@@ -62,7 +58,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// start server in a goroutine
 	go func() {
 		log.Printf("server listening on %s", cfg.Port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -70,7 +65,6 @@ func main() {
 		}
 	}()
 
-	// graceful shutdown: listen for interrupt signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -83,7 +77,6 @@ func main() {
 		log.Printf("server shutdown error: %v", err)
 	}
 
-	// close database connection
 	if err := persistence.CloseDB(db); err != nil {
 		log.Printf("database close error: %v", err)
 	}

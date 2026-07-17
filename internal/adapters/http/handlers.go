@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,13 @@ import (
 )
 
 type Handlers struct {
-	UserSvc usecase.UserService
-	Cfg     *config.Config
+	UserSvc       usecase.UserService
+	CollectionSvc usecase.CollectionService
+	Cfg           *config.Config
 }
 
-func NewHandlers(us usecase.UserService, cfg *config.Config) *Handlers {
-	return &Handlers{UserSvc: us, Cfg: cfg}
+func NewHandlers(us usecase.UserService, cs usecase.CollectionService, cfg *config.Config) *Handlers {
+	return &Handlers{UserSvc: us, CollectionSvc: cs, Cfg: cfg}
 }
 
 // Register creates a new user account
@@ -29,7 +31,6 @@ func (h *Handlers) Register(c *gin.Context) {
 		Password string `json:"password"`
 	}
 
-	// bind and parse JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -38,7 +39,6 @@ func (h *Handlers) Register(c *gin.Context) {
 		return
 	}
 
-	// validate input
 	if err := validateRegister(req.Username, req.Email, req.Password); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -47,7 +47,6 @@ func (h *Handlers) Register(c *gin.Context) {
 		return
 	}
 
-	// call service layer
 	user, err := h.UserSvc.Register(req.Username, req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -71,7 +70,6 @@ func (h *Handlers) Login(c *gin.Context) {
 		Password string `json:"password"`
 	}
 
-	// bind and parse JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -80,7 +78,6 @@ func (h *Handlers) Login(c *gin.Context) {
 		return
 	}
 
-	// validate input
 	if err := validateLogin(req.Email, req.Password); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -89,7 +86,6 @@ func (h *Handlers) Login(c *gin.Context) {
 		return
 	}
 
-	// call service layer
 	token, user, err := h.UserSvc.Login(req.Email, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -170,29 +166,139 @@ func validateLogin(email, password string) error {
 	return nil
 }
 
-// collections endpoints (placeholder stubs)
+// --- helpers shared by resource handlers ---
 
+func parseIDParam(c *gin.Context) (uint, error) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
+}
+
+// collectionErrorStatus maps usecase-level errors to HTTP status + message.
+func collectionErrorStatus(err error) (int, string) {
+	switch {
+	case errors.Is(err, usecase.ErrNotFound):
+		return http.StatusNotFound, "collection not found"
+	case errors.Is(err, usecase.ErrForbidden):
+		return http.StatusForbidden, "not allowed to access this collection"
+	default:
+		return http.StatusInternalServerError, "internal error"
+	}
+}
+
+// --- collections ---
+
+// ListCollections
+// GET /api/collections
 func (h *Handlers) ListCollections(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+	userID := c.GetUint("userID")
+	cols, err := h.CollectionSvc.List(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to list collections"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": cols})
 }
 
+// CreateCollection
+// POST /api/collections
 func (h *Handlers) CreateCollection(c *gin.Context) {
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request payload"})
+		return
+	}
+
+	col, err := h.CollectionSvc.Create(userID, req.Name)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": col})
 }
 
+// GetCollection
+// GET /api/collections/:id
 func (h *Handlers) GetCollection(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	col, err := h.CollectionSvc.Get(userID, id)
+	if err != nil {
+		status, msg := collectionErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": col})
 }
 
+// UpdateCollection (rename)
+// PUT /api/collections/:id
 func (h *Handlers) UpdateCollection(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request payload"})
+		return
+	}
+
+	col, err := h.CollectionSvc.Rename(userID, id, req.Name)
+	if err != nil {
+		if err.Error() == "name is required" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+			return
+		}
+		status, msg := collectionErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": col})
 }
 
+// DeleteCollection
+// DELETE /api/collections/:id
 func (h *Handlers) DeleteCollection(c *gin.Context) {
-	c.JSON(http.StatusNoContent, gin.H{"success": true})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	if err := h.CollectionSvc.Delete(userID, id); err != nil {
+		status, msg := collectionErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
-// requests endpoints (placeholder stubs)
+// --- requests endpoints (placeholder stubs, unchanged for now) ---
 
 func (h *Handlers) ListRequests(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
@@ -214,7 +320,7 @@ func (h *Handlers) DeleteRequest(c *gin.Context) {
 	c.JSON(http.StatusNoContent, gin.H{"success": true})
 }
 
-// history endpoints (placeholder stubs)
+// --- history endpoints (placeholder stubs, unchanged for now) ---
 
 func (h *Handlers) ListHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
