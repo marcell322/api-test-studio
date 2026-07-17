@@ -48,6 +48,20 @@ Specifically verified the collection→user ownership chain: registered a second
 via /api/me that the token belonged to a distinct user_id before testing, then confirmed that user 2
 cannot GET or POST a saved request against a collection owned by user 1 (403, no row created).
 
+## Verified: Send Request + History
+
+Tested successful request execution (httpbin.org, 200) and failure handling (invalid DNS host, 502
+returned to caller). Confirmed both successful and failed attempts are persisted to history —
+failed attempts log status_code: 0 with the underlying error message, which required explicitly
+logging inside the error branch of HistoryService.Send rather than only after a successful response.
+
+## Known limitation: SSRF exposure
+
+/api/send allows an authenticated user to make the server issue arbitrary outbound HTTP requests.
+Not currently restricted to public IP ranges — a production deployment should block requests to
+private/internal addresses (127.0.0.1, 10.0.0.0/8, 169.254.169.254, etc.) before this is exposed
+beyond local development.
+
 ## Other Human Decisions
 
 - Split validation logic (`validateRegister`, `validateLogin`) out of handlers into standalone functions per CLAUDE.md's "no business logic in handlers" rule — AI's first draft had validation inline in the handler

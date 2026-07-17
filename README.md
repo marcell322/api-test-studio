@@ -14,7 +14,7 @@ This project is a work in progress. What's implemented so far:
 - ✅ Authenticated `/me` endpoint
 - ✅ Collections
 - ✅ Saved Requests
-- 🚧 Request History (API routes scaffolded, persistence not yet implemented)
+- ✅ Request History (executes requests via /api/send, logs outcome including failures)
 - ⏳ Frontend (Vue 3) — not started yet
 
 See [SPEC.md](./SPEC.md) for the full intended feature set and [CLAUDE.md](./CLAUDE.md) for the development guidelines used when working with AI on this project.
