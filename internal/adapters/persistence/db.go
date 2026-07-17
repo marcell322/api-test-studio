@@ -1,14 +1,13 @@
 package persistence
 
 import (
-	"database/sql"
+	// "database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	_ "modernc.org/sqlite"
+    "github.com/glebarez/sqlite"
+    "gorm.io/gorm"
 )
 
 // NewGormDB opens (and creates if necessary) a SQLite database at dbPath and returns a *gorm.DB.

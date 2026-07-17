@@ -2,13 +2,10 @@ package auth
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -40,7 +37,6 @@ func ValidateToken(tokenStr, secret string) (uint, error) {
 	}
 	var claims jwt.RegisteredClaims
 	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
-		// ensure signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -57,28 +53,4 @@ func ValidateToken(tokenStr, secret string) (uint, error) {
 		return 0, fmt.Errorf("invalid subject in token: %w", err)
 	}
 	return uint(id), nil
-}
-
-// Middleware validates Bearer token and sets userID in context ("userID").
-func Middleware(secret string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		auth := c.GetHeader("Authorization")
-		if auth == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "missing auth"})
-			return
-		}
-		parts := strings.SplitN(auth, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid auth header"})
-			return
-		}
-		tknStr := parts[1]
-		id, err := ValidateToken(tknStr, secret)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "message": "invalid token"})
-			return
-		}
-		c.Set("userID", id)
-		c.Next()
-	}
 }
