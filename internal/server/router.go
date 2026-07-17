@@ -8,10 +8,9 @@ import (
 	"github.com/marcell322/api-test-studio/internal/usecase"
 )
 
-func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc usecase.CollectionService, requestSvc usecase.SavedRequestService) *gin.Engine {
+func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc usecase.CollectionService, requestSvc usecase.SavedRequestService, historySvc usecase.HistoryService) *gin.Engine {
 	r := gin.Default()
-	h := handlers.NewHandlers(userSvc, collectionSvc, requestSvc, cfg)
-	// ...rest is unchanged, the requests routes already point at h.ListRequests etc.
+	h := handlers.NewHandlers(userSvc, collectionSvc, requestSvc, historySvc, cfg)
 
 	// public routes
 	api := r.Group("/api")
@@ -27,6 +26,7 @@ func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc us
 	{
 		// user
 		protected.GET("/me", h.Me)
+		protected.POST("/send", h.SendRequest) // POST /api/send
 
 		// collections
 		collections := protected.Group("/collections")
@@ -51,9 +51,9 @@ func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc us
 		// history
 		history := protected.Group("/history")
 		{
-			history.GET("", h.ListHistory)              // GET /api/history
-			history.GET("/:id", h.GetHistoryItem)        // GET /api/history/:id
-			history.DELETE("/:id", h.DeleteHistoryItem)  // DELETE /api/history/:id
+			history.GET("", h.ListHistory)
+			history.GET("/:id", h.GetHistoryItem)
+			history.DELETE("/:id", h.DeleteHistoryItem)
 		}
 	}
 
