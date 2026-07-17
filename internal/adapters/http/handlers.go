@@ -15,11 +15,12 @@ import (
 type Handlers struct {
 	UserSvc       usecase.UserService
 	CollectionSvc usecase.CollectionService
+	RequestSvc    usecase.SavedRequestService
 	Cfg           *config.Config
 }
 
-func NewHandlers(us usecase.UserService, cs usecase.CollectionService, cfg *config.Config) *Handlers {
-	return &Handlers{UserSvc: us, CollectionSvc: cs, Cfg: cfg}
+func NewHandlers(us usecase.UserService, cs usecase.CollectionService, rs usecase.SavedRequestService, cfg *config.Config) *Handlers {
+	return &Handlers{UserSvc: us, CollectionSvc: cs, RequestSvc: rs, Cfg: cfg}
 }
 
 // Register creates a new user account
@@ -298,26 +299,153 @@ func (h *Handlers) DeleteCollection(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// --- requests endpoints (placeholder stubs, unchanged for now) ---
+// --- saved requests ---
 
+type savedRequestPayload struct {
+	CollectionID uint              `json:"collection_id"`
+	Name         string            `json:"name"`
+	Method       string            `json:"method"`
+	URL          string            `json:"url"`
+	Headers      map[string]string `json:"headers"`
+	Body         string            `json:"body"`
+}
+
+func requestErrorStatus(err error) (int, string) {
+	switch {
+	case errors.Is(err, usecase.ErrNotFound):
+		return http.StatusNotFound, "not found"
+	case errors.Is(err, usecase.ErrForbidden):
+		return http.StatusForbidden, "not allowed to access this resource"
+	default:
+		return http.StatusInternalServerError, "internal error"
+	}
+}
+
+// ListRequests
+// GET /api/requests
+// Optional query param: ?collection_id=123 to filter by collection
 func (h *Handlers) ListRequests(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+	userID := c.GetUint("userID")
+
+	if cidStr := c.Query("collection_id"); cidStr != "" {
+		cid, err := strconv.ParseUint(cidStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid collection_id"})
+			return
+		}
+		reqs, err := h.RequestSvc.ListByCollection(userID, uint(cid))
+		if err != nil {
+			status, msg := requestErrorStatus(err)
+			c.JSON(status, gin.H{"success": false, "message": msg})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": reqs})
+		return
+	}
+
+	reqs, err := h.RequestSvc.List(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to list requests"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": reqs})
 }
 
+// CreateRequest
+// POST /api/requests
 func (h *Handlers) CreateRequest(c *gin.Context) {
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	var req savedRequestPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request payload"})
+		return
+	}
+
+	sr, err := h.RequestSvc.Create(userID, req.CollectionID, req.Name, req.Method, req.URL, req.Headers, req.Body)
+	if err != nil {
+		if errors.Is(err, usecase.ErrNotFound) || errors.Is(err, usecase.ErrForbidden) {
+			status, msg := requestErrorStatus(err)
+			c.JSON(status, gin.H{"success": false, "message": msg})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"success": true, "data": sr})
 }
 
+// GetRequest
+// GET /api/requests/:id
 func (h *Handlers) GetRequest(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	sr, err := h.RequestSvc.Get(userID, id)
+	if err != nil {
+		status, msg := requestErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": sr})
 }
 
+// UpdateRequest
+// PUT /api/requests/:id
 func (h *Handlers) UpdateRequest(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	var req savedRequestPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request payload"})
+		return
+	}
+
+	sr, err := h.RequestSvc.Update(userID, id, req.Name, req.Method, req.URL, req.Headers, req.Body)
+	if err != nil {
+		if errors.Is(err, usecase.ErrNotFound) || errors.Is(err, usecase.ErrForbidden) {
+			status, msg := requestErrorStatus(err)
+			c.JSON(status, gin.H{"success": false, "message": msg})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": sr})
 }
 
+// DeleteRequest
+// DELETE /api/requests/:id
 func (h *Handlers) DeleteRequest(c *gin.Context) {
-	c.JSON(http.StatusNoContent, gin.H{"success": true})
+	userID := c.GetUint("userID")
+
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+
+	if err := h.RequestSvc.Delete(userID, id); err != nil {
+		status, msg := requestErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 // --- history endpoints (placeholder stubs, unchanged for now) ---
