@@ -16,11 +16,12 @@ type Handlers struct {
 	UserSvc       usecase.UserService
 	CollectionSvc usecase.CollectionService
 	RequestSvc    usecase.SavedRequestService
+	HistorySvc    usecase.HistoryService
 	Cfg           *config.Config
 }
 
-func NewHandlers(us usecase.UserService, cs usecase.CollectionService, rs usecase.SavedRequestService, cfg *config.Config) *Handlers {
-	return &Handlers{UserSvc: us, CollectionSvc: cs, RequestSvc: rs, Cfg: cfg}
+func NewHandlers(us usecase.UserService, cs usecase.CollectionService, rs usecase.SavedRequestService, hs usecase.HistoryService, cfg *config.Config) *Handlers {
+	return &Handlers{UserSvc: us, CollectionSvc: cs, RequestSvc: rs, HistorySvc: hs, Cfg: cfg}
 }
 
 // Register creates a new user account
@@ -448,16 +449,80 @@ func (h *Handlers) DeleteRequest(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// --- history endpoints (placeholder stubs, unchanged for now) ---
+// --- send request (executes HTTP call + logs to history) ---
 
+type sendRequestPayload struct {
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
+}
+
+// SendRequest executes an HTTP request on the caller's behalf and logs it.
+// POST /api/send
+func (h *Handlers) SendRequest(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	var req sendRequestPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid request payload"})
+		return
+	}
+
+	result, err := h.HistorySvc.Send(userID, req.Method, req.URL, req.Headers, req.Body)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
+// --- history ---
+
+// ListHistory
+// GET /api/history
 func (h *Handlers) ListHistory(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}})
+	userID := c.GetUint("userID")
+	items, err := h.HistorySvc.List(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "failed to list history"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": items})
 }
 
+// GetHistoryItem
+// GET /api/history/:id
 func (h *Handlers) GetHistoryItem(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": nil})
+	userID := c.GetUint("userID")
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+	item, err := h.HistorySvc.Get(userID, id)
+	if err != nil {
+		status, msg := requestErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": item})
 }
 
+// DeleteHistoryItem
+// DELETE /api/history/:id
 func (h *Handlers) DeleteHistoryItem(c *gin.Context) {
-	c.JSON(http.StatusNoContent, gin.H{"success": true})
+	userID := c.GetUint("userID")
+	id, err := parseIDParam(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid id"})
+		return
+	}
+	if err := h.HistorySvc.Delete(userID, id); err != nil {
+		status, msg := requestErrorStatus(err)
+		c.JSON(status, gin.H{"success": false, "message": msg})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
