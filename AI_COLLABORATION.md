@@ -41,6 +41,13 @@ Tested manually via curl for create, list, get-by-id, update, and delete, includ
 - 403 when requesting another user's collection (ownership check in `CollectionService.Get`)
 - Confirmed via `/api/me` that the two test tokens belonged to distinct users before testing the 403 case, to rule out a test setup mistake before assuming a code bug
 
+## Verified: Saved Requests CRUD
+
+Tested manually via curl for create, get, update, delete, and list (both global and scoped to a collection).
+Specifically verified the collection→user ownership chain: registered a second user (bob), confirmed
+via /api/me that the token belonged to a distinct user_id before testing, then confirmed that user 2
+cannot GET or POST a saved request against a collection owned by user 1 (403, no row created).
+
 ## Other Human Decisions
 
 - Split validation logic (`validateRegister`, `validateLogin`) out of handlers into standalone functions per CLAUDE.md's "no business logic in handlers" rule — AI's first draft had validation inline in the handler
