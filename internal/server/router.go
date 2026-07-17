@@ -8,9 +8,10 @@ import (
 	"github.com/marcell322/api-test-studio/internal/usecase"
 )
 
-func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc usecase.CollectionService) *gin.Engine {
+func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc usecase.CollectionService, requestSvc usecase.SavedRequestService) *gin.Engine {
 	r := gin.Default()
-	h := handlers.NewHandlers(userSvc, collectionSvc, cfg)
+	h := handlers.NewHandlers(userSvc, collectionSvc, requestSvc, cfg)
+	// ...rest is unchanged, the requests routes already point at h.ListRequests etc.
 
 	// public routes
 	api := r.Group("/api")
