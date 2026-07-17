@@ -12,7 +12,7 @@ This project is a work in progress. What's implemented so far:
 
 - ✅ User registration & login (JWT-based auth)
 - ✅ Authenticated `/me` endpoint
-- 🚧 Collections (API routes scaffolded, persistence not yet implemented)
+- ✅ Collections (API routes scaffolded, persistence not yet implemented)
 - 🚧 Saved Requests (API routes scaffolded, persistence not yet implemented)
 - 🚧 Request History (API routes scaffolded, persistence not yet implemented)
 - ⏳ Frontend (Vue 3) — not started yet
