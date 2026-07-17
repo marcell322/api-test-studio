@@ -33,7 +33,7 @@ func main() {
 	log.Printf("database initialized at %s", cfg.DBPath)
 
 	log.Println("running migrations...")
-	if err := persistence.AutoMigrate(db, &models.User{}, &models.Collection{}, &models.SavedRequest{}); err != nil {
+	if err := persistence.AutoMigrate(db, &models.User{}, &models.Collection{}, &models.SavedRequest{}, &models.RequestHistory{}); err != nil {
 		log.Fatalf("automigrate failed: %v", err)
 	}
 	log.Println("migrations completed")
@@ -47,10 +47,13 @@ func main() {
 
 	requestRepo := persistence.NewGormSavedRequestRepository(db)
 	requestSvc := usecase.NewSavedRequestService(requestRepo, collectionRepo)
+
+	historyRepo := persistence.NewGormHistoryRepository(db)
+	historySvc := usecase.NewHistoryService(historyRepo)
 	log.Println("services initialized")
 
 	log.Println("configuring routes...")
-	r := server.NewRouter(cfg, userSvc, collectionSvc, requestSvc)
+	r := server.NewRouter(cfg, userSvc, collectionSvc, requestSvc, historySvc)
 	log.Println("routes configured")
 
 	httpServer := &http.Server{
