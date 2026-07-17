@@ -33,6 +33,14 @@ I asked for and added an explicit ownership check inside `CollectionService.Get`
 I also introduced two shared, typed errors — `usecase.ErrNotFound` and `usecase.ErrForbidden` — so the handler layer can map them to the correct HTTP status (404 vs 403) instead of everything collapsing into a generic 400 or 500.
 
 **Verification:** manually tested with two different user accounts — confirmed user B gets a 403 when trying to GET/PUT/DELETE a collection created by user A, and a 404 when the ID doesn't exist at all.
+
+## Verified: Collections CRUD
+
+Tested manually via curl for create, list, get-by-id, update, and delete, including:
+- 404 when requesting a non-existent collection ID
+- 403 when requesting another user's collection (ownership check in `CollectionService.Get`)
+- Confirmed via `/api/me` that the two test tokens belonged to distinct users before testing the 403 case, to rule out a test setup mistake before assuming a code bug
+
 ## Other Human Decisions
 
 - Split validation logic (`validateRegister`, `validateLogin`) out of handlers into standalone functions per CLAUDE.md's "no business logic in handlers" rule — AI's first draft had validation inline in the handler
