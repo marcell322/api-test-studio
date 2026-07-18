@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+}
+
+::selection {
+  background: theme('colors.accent');
+  color: theme('colors.bg');
+}
