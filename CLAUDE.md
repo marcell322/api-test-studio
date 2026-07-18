@@ -48,19 +48,19 @@ Use
 - GORM ORM
 - SQLite
 
-Project structure
+Project structure (clean architecture)
 
 internal/
-
-    handlers/
-
-    services/
-
-    repositories/
-
-    middleware/
-
-    models/
+    domain/
+        models/       — plain structs, no framework deps
+        repository/     — interfaces only
+    usecase/         — business logic, ownership checks
+    adapters/
+        http/         — Gin handlers
+        persistence/     — GORM implementations of repository interfaces
+        auth/         — JWT generation/validation
+    middleware/       — auth guard, CORS
+    config/         — env-based configuration
 
 Business logic should never be placed inside handlers.
 
@@ -69,6 +69,8 @@ Handlers should only
 - Validate request
 - Call service
 - Return response
+
+Ownership checks (a user can only access their own resources) belong in the usecase layer, not the handler.
 
 ---
 
@@ -158,19 +160,19 @@ Examples
 
 # Frontend Rules
 
-Use Vue 3 Composition API.
+Use Vue 3 Composition API (`<script setup>`).
 
 Separate
 
-Pages
+Views    — src/views/, one per route
+Components — src/components/, reusable UI
+Stores   — src/stores/, Pinia, for cross-component state (auth)
 
-Components
-
-Services
-
-Reusable UI belongs in components.
-
-API calls belong in services.
+API calls: a single shared axios client (src/api/client.js) handles auth headers and 401s.
+Current implementation calls it directly from components/views rather than through a
+per-resource service layer — acceptable for this project's size, but if the API surface
+grows, extract resource-specific service modules (e.g. src/api/collections.js) rather than
+letting every component hold raw endpoint strings.
 
 ---
 

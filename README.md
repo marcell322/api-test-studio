@@ -13,37 +13,55 @@ Postman and similar tools are powerful but heavy for simple day-to-day API testi
 - ✅ Collections (full CRUD, ownership-scoped per user)
 - ✅ Saved Requests (full CRUD, ownership enforced through parent collection)
 - ✅ Send Request + History (executes live HTTP requests via `/api/send`, logs both successes and failures)
-- ⏳ Frontend (Vue 3) — not started yet
+- ✅ Frontend (Vue 3) — full workspace: auth, collections, saved requests, send + history
 
 See [SPEC.md](./SPEC.md) for the full intended feature set and [CLAUDE.md](./CLAUDE.md) for the development guidelines used when working with AI on this project.
 
 ## Tech Stack
 
 **Backend:** Go, Gin, GORM, SQLite (via `modernc.org/sqlite`, pure-Go driver — no CGO needed)
-**Planned Frontend:** Vue 3, Vite, Axios, TailwindCSS
+**Frontend:** Vue 3, Vite, Pinia, Vue Router, Axios, TailwindCSS
 
 ## Architecture
 
-Clean architecture, backend only for now:
+**Backend** — clean architecture:
 cmd/app              → entrypoint
 internal/domain          → models, repository interfaces (no framework deps)
 internal/usecase          → business logic (services)
 internal/adapters/http        → Gin handlers
 internal/adapters/persistence → GORM implementation of repositories
 internal/adapters/auth      → JWT generation/validation
-internal/middleware         → Gin middleware (auth guard)
+internal/middleware         → Gin middleware (auth guard, CORS)
 internal/config           → env-based configuration
 
 Handlers only validate input, call a service, and return a response — no business logic or SQL lives in the handler layer. Ownership checks (a user can only touch their own resources) live in the service layer, not the handler.
 
+**Frontend** — `frontend/`, a standalone Vue 3 + Vite SPA:
+src/api        → axios client, attaches JWT, handles 401
+src/stores       → Pinia auth store
+src/router       → route guards (redirect unauthenticated users to /login)
+src/views        → Login, Register, Workspace (main layout)
+src/components     → sidebar, request builder, response viewer, history panel
+
+The frontend talks to the backend over `/api/*`; CORS is currently allowlisted for `localhost:5173` only (local dev).
+
 ## Getting Started
 
+**Backend**
 ```bash
 cp .env.example .env
 go run ./cmd/app
 ```
-
 Server starts on the port set in `.env` (default `:8080`).
+
+**Frontend**
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+Opens at `http://localhost:5173`. Requires the backend running first.
 
 ## API Overview
 
@@ -63,17 +81,18 @@ Server starts on the port set in `.env` (default `:8080`).
 ## Known Limitations
 
 - **SSRF exposure**: `/api/send` lets an authenticated user make the server issue arbitrary outbound requests. Not currently restricted to public IP ranges — a production deployment should block requests to private/internal addresses before this is exposed beyond local development.
-- No automated tests yet (manual `curl`-based verification only — see `AI_COLLABORATION.md`).
+- **CORS is dev-only**: allowlisted to `localhost:5173`/`127.0.0.1:5173`. Needs a proper origin config before any real deployment.
+- No automated tests yet (manual verification only — see `AI_COLLABORATION.md`).
 - No rate limiting on `/api/send`.
 
 ## Future Improvements
 
-- Vue 3 frontend with JSON viewer
 - Import/export Postman collections
-- Unit tests for services and handlers
+- Unit tests for services and handlers (backend) and components (frontend)
 - SSRF protection (block private IP ranges)
 - Docker support
 - Swagger/OpenAPI docs
+- Loading skeletons / error boundaries on the frontend
 
 ## AI Collaboration
 

@@ -88,3 +88,28 @@ beyond local development.
 - Manual API testing via `curl` for register/login/me flows
 - `go build ./...` after every structural change
 - Code review of every AI-generated file before commit, checking against the rules in CLAUDE.md
+
+## Frontend: A Different Collaboration Pattern
+
+Unlike the backend, which was built commit-by-commit with review at each step, the Vue 3 frontend
+was AI-generated in a single large pass (Login/Register views, Pinia auth store, sidebar with
+collection tree, request builder, response viewer, history panel — roughly 15 files at once).
+Worth being upfront about: this means less granular review than the backend got. What I did verify
+before committing:
+
+- The AI-generated project actually builds (`npm install && npm run build`) with zero errors before
+  I accepted any of it — no untested scaffold got merged.
+- Manually exercised every screen against the real backend: register → login → create collection →
+  add saved request → send a live request → check history → replay from history → log out.
+- Found the CORS gap myself by actually running the app in a browser rather than assuming the API
+  and frontend would talk to each other — the backend had no CORS middleware, so the first real
+  browser test would have failed with every request blocked. Added `middleware/cors.go` to fix it.
+
+## Verified: End-to-End (Frontend + Backend)
+
+Ran both servers together (`go run ./cmd/app` + `npm run dev`) and manually tested the full user
+flow in a browser rather than just curl: registration, login persistence across refresh (JWT in
+localStorage), creating a collection, saving a request into it, sending a live request and viewing
+the formatted response, and viewing/replaying from history. Confirmed a saved request's headers
+round-trip correctly between the backend's JSON-string storage and the frontend's key/value editor
+UI, since that's a boundary where a format mismatch would silently break with no error.
