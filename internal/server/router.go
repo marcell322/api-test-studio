@@ -10,6 +10,7 @@ import (
 
 func NewRouter(cfg *config.Config, userSvc usecase.UserService, collectionSvc usecase.CollectionService, requestSvc usecase.SavedRequestService, historySvc usecase.HistoryService) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.CORSMiddleware())   // <-- add this line
 	h := handlers.NewHandlers(userSvc, collectionSvc, requestSvc, historySvc, cfg)
 
 	// public routes
