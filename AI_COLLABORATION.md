@@ -1,5 +1,20 @@
 # AI Collaboration
 
+## Summary
+
+Three complete, tested vertical slices were built collaboratively with AI across this project:
+
+1. **Auth** (register/login/me) — initial AI-generated scaffold, cleaned up a duplicate JWT middleware implementation during review (see above)
+2. **Collections** — full CRUD with per-user ownership enforcement
+3. **Saved Requests** — full CRUD with ownership enforced through the parent collection (cross-resource check, not just direct ownership)
+4. **Send Request + History** — live HTTP execution with failure-path logging
+
+Each feature followed the same review discipline: read the AI-generated code against CLAUDE.md's
+rules before committing, manually tested the happy path and the failure/security paths (404, 403,
+network failures) via curl, and fixed issues found during that testing (e.g. verifying test tokens
+actually belonged to different users before trusting a 403/leak result, rather than assuming the
+code was right or wrong from the first symptom).
+
 ## AI Tools Used
 
 - ChatGPT (GPT-5.5) — architecture planning, initial scaffolding
